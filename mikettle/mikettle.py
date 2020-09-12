@@ -77,8 +77,11 @@ class MiKettle(object):
         if token is None:
             token = MiKettle.generateRandomToken()
         self._token = token
+        self._p = None
 
     def connect(self):
+        if self._p is not None:
+            return
         self._p = Peripheral(deviceAddr=self._mac, iface=self._iface)
         self._p.setDelegate(self)
 
