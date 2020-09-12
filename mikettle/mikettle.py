@@ -107,7 +107,7 @@ class MiKettle(object):
                             " from Mi Kettle %s" % (_HANDLE_READ_FIRMWARE_VERSION, self._mac))
         return ''.join(chr(n) for n in firmware_version)
 
-    def parameter_value(self, parameter, read_cached=True):
+    def parameter_value(self, parameter, read_cached=False):
         """Return a value of one of the monitored paramaters.
         This method will try to retrieve the data from cache and only
         request it by bluetooth if no cached value is stored or the cache is
