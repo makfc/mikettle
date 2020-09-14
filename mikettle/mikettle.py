@@ -6,6 +6,8 @@ import logging
 from bluepy.btle import UUID, Peripheral, DefaultDelegate
 from datetime import datetime, timedelta
 from threading import Lock
+import paho.mqtt.client as mqtt
+import json
 
 _KEY1 = bytes([0x90, 0xCA, 0x85, 0xDE])
 _KEY2 = bytes([0x92, 0xAB, 0x54, 0xFA])
@@ -24,10 +26,10 @@ _SUBSCRIBE_TRUE = bytes([0x01, 0x00])
 
 MI_ACTION = "action"
 MI_MODE = "mode"
-MI_SET_TEMPERATURE = "set temperature"
-MI_CURRENT_TEMPERATURE = "current temperature"
-MI_KW_TYPE = "keep warm type"
-MI_KW_TIME = "keep warm time"
+MI_SET_TEMPERATURE = "set_temperature"
+MI_CURRENT_TEMPERATURE = "current_temperature"
+MI_KW_TYPE = "keep_warm_type"
+MI_KW_TIME = "keep_warm_time"
 
 MI_ACTION_MAP = {
     0: "idle",
@@ -39,7 +41,7 @@ MI_ACTION_MAP = {
 MI_MODE_MAP = {
     255: "none",
     1: "boil",
-    3: "keep warm"
+    2: "keep warm"
 }
 
 MI_KW_TYPE_MAP = {
@@ -78,12 +80,20 @@ class MiKettle(object):
             token = MiKettle.generateRandomToken()
         self._token = token
         self._p = None
+        broker_address="192.168.1.3" 
+        self.client = mqtt.Client("P1") #create new instance
+        self.client.connect(broker_address) #connect to broker
 
     def connect(self):
         if self._p is not None:
             return
-        self._p = Peripheral(deviceAddr=self._mac, iface=self._iface)
-        self._p.setDelegate(self)
+        try:
+            self._p = Peripheral(deviceAddr=self._mac, iface=self._iface)
+            self._p.setDelegate(self)
+        except Exception as error:
+            _LOGGER.debug('Connect Error %s', error)
+            self.client.publish("homeassistant/kettle/ac9a22f1d2b3/availability", "offline")
+
 
     def name(self):
         """Return the name of the device."""
@@ -129,6 +139,14 @@ class MiKettle(object):
             return self._cache[parameter]
         else:
             raise Exception("Could not read data from MiKettle %s" % self._mac)
+    
+    def waitForNotifications(self):
+        try:
+            return self._p.waitForNotifications(self.ble_timeout)
+        except Exception as error:
+            _LOGGER.debug('waitForNotifications Error %s', error)
+            self.client.publish("homeassistant/kettle/ac9a22f1d2b3/availability", "offline")
+
 
     def fill_cache(self):
         """Fill the cache with new data from the sensor."""
@@ -147,6 +165,8 @@ class MiKettle(object):
             _LOGGER.debug('Error %s', error)
             self._last_read = datetime.now() - self._cache_timeout + \
                 timedelta(seconds=300)
+            self._p.disconnect()
+            self.client.publish("homeassistant/kettle/ac9a22f1d2b3/availability", "offline")
             return
 
     def clear_cache(self):
@@ -273,6 +293,9 @@ class MiKettle(object):
             _LOGGER.debug("Parse data: %s", data)
             self._cache = self._parse_data(data)
             _LOGGER.debug("data parsed %s", self._cache)
+            self.client.publish("homeassistant/kettle/ac9a22f1d2b3/state", json.dumps(self._cache))
+            self.client.publish("homeassistant/kettle/ac9a22f1d2b3/availability", "online")
+
 
             if self.cache_available():
                 self._last_read = datetime.now()
