@@ -40,17 +40,24 @@ def connect(args):
     logging.basicConfig()
     logging.getLogger().setLevel(logging.DEBUG)
 
-    kettle = MiKettle(args.mac, args.product_id)
-    print("Authenticating")
-    print("Getting data from mi Kettle")
-    print("FW: {}".format(kettle.firmware_version()))
-    print("Name: {}".format(kettle.name()))
+    while True:
+        try:
+            kettle = MiKettle(args.mac, args.product_id)
+            print("Authenticating")
+            print("Getting data from mi Kettle")
+            print("FW: {}".format(kettle.firmware_version()))
+            print("Name: {}".format(kettle.name()))
 
-    try:
-      print("Current temperature: {}".format(kettle.parameter_value(MI_CURRENT_TEMPERATURE)))
-    except Exception as error:
-      print("Read failed")
-      print(error)
+            # print("Current temperature: {}".format(kettle.parameter_value(MI_CURRENT_TEMPERATURE)))
+            kettle.fill_cache()
+            while True:
+                if kettle.waitForNotifications():
+                    print("Notification")
+                    continue
+                break
+        except Exception as error:
+            print("Read failed")
+            print(error)
 
 def main():
     """Main function.
