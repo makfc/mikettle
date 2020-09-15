@@ -49,6 +49,10 @@ MI_KW_TYPE_MAP = {
     1: "cool down"
 }
 
+logging.basicConfig(
+    format='%(asctime)s.%(msecs)03d %(levelname)s %(module)s - %(funcName)s: %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S',
+)
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -290,11 +294,13 @@ class MiKettle(object):
             if data is None:
               return
 
-            _LOGGER.debug("Parse data: %s", data)
+            data_len = len(repr(data))
+            _LOGGER.debug("Parse data: %s , %d", data, data_len)
             self._cache = self._parse_data(data)
-            _LOGGER.debug("data parsed %s", self._cache)
-            self.client.publish("homeassistant/kettle/ac9a22f1d2b3/state", json.dumps(self._cache))
-            self.client.publish("homeassistant/kettle/ac9a22f1d2b3/availability", "online")
+            _LOGGER.debug("data parsed %s", json.dumps(self._cache, indent=4))
+            if self._cache[MI_CURRENT_TEMPERATURE] > 0:
+                self.client.publish("homeassistant/kettle/ac9a22f1d2b3/state", json.dumps(self._cache))
+                self.client.publish("homeassistant/kettle/ac9a22f1d2b3/availability", "online")
 
 
             if self.cache_available():
