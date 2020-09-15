@@ -8,6 +8,8 @@ import sys
 import logging
 
 import time
+import datetime
+import os
 
 from mikettle.mikettle import MiKettle
 from mikettle.mikettle import (
@@ -40,24 +42,33 @@ def connect(args):
     logging.basicConfig()
     logging.getLogger().setLevel(logging.DEBUG)
 
-    while True:
-        try:
-            kettle = MiKettle(args.mac, args.product_id)
-            print("Authenticating")
-            print("Getting data from mi Kettle")
-            print("FW: {}".format(kettle.firmware_version()))
-            print("Name: {}".format(kettle.name()))
+    last_exception_time = datetime.datetime(1, 1, 1, 0, 0)
+    sec = 5
 
-            # print("Current temperature: {}".format(kettle.parameter_value(MI_CURRENT_TEMPERATURE)))
-            kettle.fill_cache()
-            while True:
-                if kettle.waitForNotifications():
-                    print("Notification")
-                    continue
+    try:
+        kettle = MiKettle(args.mac, args.product_id)
+        print("Authenticating")
+        print("Getting data from mi Kettle")
+        # print("FW: {}".format(kettle.firmware_version()))
+        # print("Name: {}".format(kettle.name()))
+
+        # print("Current temperature: {}".format(kettle.parameter_value(MI_CURRENT_TEMPERATURE)))
+        kettle.fill_cache()
+        while True:
+            if not kettle.waitForNotifications():
                 break
-        except Exception as error:
-            print("Read failed")
-            print(error)
+            print("Notification")
+    except Exception as error:
+        now = datetime.datetime.now()
+        span = now - last_exception_time
+        last_exception_time = now
+        if (span.total_seconds() <= sec + 2):
+            sec += 5
+        print("Read failed", error)
+        print(f"wait {sec}s...")
+        time.sleep(sec)
+    os.execl(sys.executable, sys.executable, *sys.argv)
+
 
 def main():
     """Main function.
